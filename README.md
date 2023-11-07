@@ -36,8 +36,8 @@ This has been tested on 1 NVIDIA V100 GPU with [CUDA 11.7](https://developer.nvi
 sudo apt install git-lfs awscli ffmpeg build-essential jq
 git lfs install --skip-repo
 # Clone this repository (~1.1 GB)
-git clone https://github.com/amazon-science/iwslt-autodub-task.git --recursive
-cd iwslt-autodub-task
+git clone https://github.com/youssefsamuel/Arabic-Dubbing.git --recursive
+cd Arabic-Dubbing
 
 # Create a conda environment
 conda env create --file environment.yml
@@ -147,7 +147,7 @@ NOTE: Test set here does not refer to the specific subsets in `data/test/`; rath
 
 We provide a baseline model checkpoint in **models/sockeye/trained_baselines/baseline_factored_noised0.1**. This uses a target factor to predict durations and additional target factors to help the model keep track of time. The training segment durations have Gaussian noise (std. dev. 0.1) added to teach the model to be flexible about timing in hopes of striking a balance between speech overlap, speech naturalness, and translation quality. (Note that the speech overlap in real human dubs is [only about 70%.](https://arxiv.org/abs/2212.12137))
 
-Before you proceed, in `sockeye_scripts/config`, set ROOT as the path of this repo. For example, `ROOT=~/iwslt-autodub-task`.
+Before you proceed, in `sockeye_scripts/config`, set ROOT as the path of this repo. For example, `ROOT=~/Arabic-Dubbing`.
 
 Before decoding, please make sure you have run the data and factor preparation steps, so that you have at least `processed_datasets/de-text-noised-durations0.1-en-phones-durations` prepared with the `multi_factored` subdirectory, `processed_datasets/de-text-without-durations-en-text-without-durations` for the translation reference text files. If you ran the steps in the previous section, you will have these already.
 
@@ -157,7 +157,7 @@ The input format for decoding is a specific JSON format that can be prepared usi
 $ python3 sockeye_scripts/decoding/create-json-inputs.py -d processed_datasets/de-text-noisy-durations0.1-en-phones-durations --subset test --output-segment-durations -o processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.de.json
 
 # Check JSON file looks like this
-$ head -2 ~/iwslt-autodub-task/processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.de.json | jq
+$ head -2 ~/Arabic-Dubbing/processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.de.json | jq
 {
   "text": "Glück@@ licherweise sind die Ster@@ ber@@ aten im Vereinigten Königreich ges@@ unken <||> <bin87>",
   "target_prefix": "<shift>",
@@ -276,7 +276,7 @@ conda deactivate
 
 Generate dubbed videos for the test set subsets using FastSpeech2
 ```bash
-cd ~/iwslt-autodub-task  # Or the path to the repo home, if different
+cd /content/Arabic-Dubbing  # Or the path to the repo home, if different
 python synthesize_speech.py --subset 1
 python synthesize_speech.py --subset 2
 ```

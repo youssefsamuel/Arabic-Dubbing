@@ -125,7 +125,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("--data-dir", type=str,
-                        default=os.path.join(os.path.expanduser('~'), "iwslt-autodub-task", "data", "test"),
+                        default=os.path.join("/content", "Arabic-Dubbing", "data", "test"),
                         help="Directory containing the audio files. Inside this directory, the files should be in subsetX/*.Y.wav, "
                              "where sorting numerically by the Y field will give us the files in the same order as the transcript file. "
                              "This is already true for the test set subsets.")
@@ -134,16 +134,16 @@ if __name__ == '__main__':
     parser.add_argument("--subset", choices=['1', '2'], type=str, required=True,
                         help="Which test set subset to generate dubs for.")
     parser.add_argument("--sockeye-model", type=str,
-                        default=os.path.join(os.path.expanduser('~'), "iwslt-autodub-task", "models", "sockeye", "trained_baselines", "baseline_factored_noised0.1", "model", "params.00078"),
+                        default=os.path.join("/content", "Arabic-Dubbing", "models", "sockeye", "trained_baselines", "baseline_factored_noised0.1", "model", "params.00078"),
                         help="Path to a Sockeye model checkpoint.")
     parser.add_argument("--fastspeech-dir", type=str,
-                        default=os.path.join(os.path.expanduser('~'), "iwslt-autodub-task", "third_party", "FastSpeech2"),
+                        default=os.path.join("/content", "Arabic-Dubbing", "third_party", "FastSpeech2"),
                         help="Path to the FastSpeech2 directory.")
     parser.add_argument("--bpe-de", type=str,
-                        default=os.path.join(os.path.expanduser('~'), "iwslt-autodub-task", "data", "training", "de_codes_10k"),
+                        default=os.path.join("/content", "Arabic-Dubbing", "data", "training", "de_codes_10k"),
                         help="BPE codes for German source text.")
     parser.add_argument("--durations-freq", type=str,
-                        default=os.path.join(os.path.expanduser('~'), "iwslt-autodub-task", "durations_freq_all.pkl"),
+                        default=os.path.join("/content", "Arabic-Dubbing", "durations_freq_all.pkl"),
                         help="Path to durations_freq_all.pkl")
     parser.add_argument("--output-video-dir", type=str,
                         help="Directory to write final dubbed videos.")

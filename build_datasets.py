@@ -51,7 +51,7 @@ def build_datasets(data_path,
     all_included_keys = set().union(train_tsv.keys(), dev_tsv.keys(), test_tsv.keys())
 
     for file in os.listdir(data_path):
-        # We want only JSON files
+        # We want only JSON files.
         name = file.split(".")[0]
         if os.path.isfile(os.path.join(data_path, name + ".json")):
             data = json.load(open(os.path.join(data_path, name + ".json")))

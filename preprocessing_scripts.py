@@ -29,7 +29,10 @@ class Bin:
                 list_durations.append(key)
         durations = numpy.array(list_durations)
         bins = stats.mstats.mquantiles(durations, [i/n for i in range(0, n + 1)])
-        self.bins = numpy.array(bins)
+        self.bins = numpy.array(bins) 
+        # array of 100 (number of bins) elements. First element is the threshold for the first bin
+        # First element in the array: means that 1/100 of the segment durations are less than that element
+        # It is accumulative. The element 50 (half .. )
 
     def find_bin(self, speech_durations, plot=False):
         assigned_bins = []
@@ -42,11 +45,11 @@ class Bin:
         ind_bins = numpy.digitize(speech_durations, self.bins)
         for ind in ind_bins:
             assigned_bins.append('<bin{}>'.format(ind))
-        return assigned_bins
+        return assigned_bins # to each segment in that file <bin5> <bin42> (indices) when we have two segments
 
 
 def load_tsv(path):
-    dict_audio = {}
+    dict_audio = {} # A dictionary of dictionaries. This dictionary has 3 keys: train, test, dev. Each key has a value which is also a dict of the names of files in that key.
     for i, split in enumerate(["train", "dev", "test"]):
         with open(os.path.join(path, "covost_v2.en_de.{}.tsv".format(split))) as f:
             lines = f.readlines()
@@ -55,15 +58,15 @@ def load_tsv(path):
                 fields = line.split("\t")
                 name = fields[0].split(".")[0]
                 # dict_audio[split][name] = fields[1].strip('\"')
-                # fields[1] -> English, fields[2] -> German
+                # fields[1] -> English Sentence, fields[2] -> German Sentence
                 dict_audio[split][name] = [fields[1].strip('\"'), fields[2].strip('\"')]
 
-    return dict_audio["train"], dict_audio["dev"], dict_audio["test"]
+    return dict_audio["train"], dict_audio["dev"], dict_audio["test"] 
 
 
 def get_speech_durations(tier, duration_freq=None, count_jsons_with_silences=0, return_durations=False, return_text=False):
-    sampling_rate = 22050
-    hop_length = 256
+    sampling_rate = 22050 #samples per second
+    hop_length = 256 # frame length (samples per frame)
     sil_phones = ["sil", "sp", "spn", '']
     phones = []
     # print("We consider as silence everything that has silent phonemes for > {} frames".format(silence_duration))
@@ -77,7 +80,7 @@ def get_speech_durations(tier, duration_freq=None, count_jsons_with_silences=0, 
         s, e, p = k[0], k[1], k[2]
         end_of_word_sec.append(e)
         if return_text:
-            text.append(p)
+            text.append(p) # text is a list of words in that file.
 
     for i, k in enumerate(tier['tiers']['phones']['entries']):
         s, e, p = k[0], k[1], k[2]
@@ -123,10 +126,13 @@ def get_speech_durations(tier, duration_freq=None, count_jsons_with_silences=0, 
 
     if return_durations:
         for duration in durations_list:
-            duration_freq[duration] += 1
+            duration_freq[duration] += 1 # After getting the duration of this segment in that file, go to the big dictionary and append the the value for that key
         if not pause_durations:
             pause_durations = [str(0)]
 
+    # phones: list of the phones including pause, sp, phone itself, eow
+    # duration_freq: modifiable dictionary where the key is the frame length per segment and the value is the number of occurences of that frame length in all files.
+    # durations_list: number of frames in each segment of a file
     return phones, duration_freq, count_jsons_with_silences, durations_list, pause_durations, " ".join(text)
 
 

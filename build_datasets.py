@@ -42,7 +42,7 @@ def build_datasets(data_path,
         bin_instance = Bin(duration_freq, n=num_bins)
     counter = 0
     train_tsv, dev_tsv, test_tsv = tsvs
-    train_de, dev_de, test_de = [], [], []
+    train_de, dev_de, test_de = [], [], [] 
     train_en, dev_en, test_en = [], [], []
     train_segments, dev_segments, test_segments = [], [], []
     return_durations = False
@@ -50,7 +50,7 @@ def build_datasets(data_path,
 
     all_included_keys = set().union(train_tsv.keys(), dev_tsv.keys(), test_tsv.keys())
 
-    for file in os.listdir(data_path):
+    for file in os.listdir(data_path): # covost mfa
         # We want only JSON files.
         name = file.split(".")[0]
         if os.path.isfile(os.path.join(data_path, name + ".json")):
@@ -63,7 +63,7 @@ def build_datasets(data_path,
         if name not in all_included_keys:
             continue
 
-        counter += 1
+        counter += 1 # number of files in mfa
 
         if en_output_type == 'en-phones-durations':
             return_durations = True
@@ -81,9 +81,31 @@ def build_datasets(data_path,
 
         if de_output_type in DE_OUTPUT_CHOICES_WITH_DURATIONS:
             if num_bins > 0:
-                bins = bin_instance.find_bin(speech_durations=durations)
+                bins = bin_instance.find_bin(speech_durations=durations) # number of frames in each segment in that file 
 
             # noisy or dummy durations for De
+            """
+            up sampling is used for data augmentation.
+            we will get the durations (number of frames per segment for that file)
+            we will add noise to these durations to get "noisy_durations"
+            suppose the file has 3 segments, upsampling 10.
+
+            Goal: to introduce flexibility so that the output is not mandatory the same length of the input
+            so this will improve the translation quality.
+
+            noisy_durations: 
+
+            suppose durations = [5 6 7]
+            after adding noise:
+            noisy_durations = [[5.2 5.1 5.2 .....], [6.4 6.2 .......], [7.3, 7.4, .....]] each list 10 elements
+            noisy_durations is a list of 3 (segments in file) lists: each sublist is of size 10 (up sampling)
+
+
+            noisy bins = [[5.2, 6.4, 7.3], [], [], ...] 
+            noisy bins is a list of 10 (up sampling) lists: each sublist is of size 3 (segments in file)
+
+            noisy_durations_rearrange_int: 10 lists, each sublist 3 (same as noisy bins) but rounded.
+            """
             if de_output_type == 'de-text-noisy-durations':
                 noisy_durations = add_noise_to_durations(durations, sd, upsampling)
                 if num_bins > 0:
@@ -92,7 +114,7 @@ def build_datasets(data_path,
                         noisy_bins_temp = bin_instance.find_bin(speech_durations=dur)
                         for i in range(upsampling):
                             noisy_bins[i].append(noisy_bins_temp[i])
-                noisy_durations_rearrange_int = [[] for _ in range(upsampling)]
+                noisy_durations_rearrange_int = [[] for _ in range(upsampling)] 
                 for dur in noisy_durations:
                     for i in range(upsampling):
                         noisy_durations_rearrange_int[i].append(round(dur[i]))
@@ -107,11 +129,19 @@ def build_datasets(data_path,
 
         if name in train_tsv.keys():
             # Source side (German)
+            """
+                if name in train:
+                    if de.clean:
+                        sentence = de sentece tokenized by bpe + <||> + bins
+                    
+                    if noisy:
+                        put the sentence 10 times with corresponding bins.
+                """
             sentence_segments = []
             if de_output_type == 'de-text-clean-durations':
                 if num_bins > 0:
                     sentence = [bpe_de.process_line(train_tsv[name][1]) + " <||> " + " ".join(bins)]
-                else:
+                else: # case of no bins (rarely occurs)
                     sentence = [bpe_de.process_line(train_tsv[name][1]) + " <||> " + " ".join(map(str, durations))]
                 if return_durations and write_segments_to_file:
                     sentence_segments = [" ".join(map(str, durations))]
@@ -182,6 +212,35 @@ def build_datasets(data_path,
         if counter % 20000 == 0:
             logging.info(f"{counter} files processed")
 
+
+    """
+       in case of de text without + eng text without durations:
+            sentences after bpe (no bins, no durations)
+        
+
+       in case of de text noisy + english phones durations:
+        train.de:
+            sentence after bpe + <||> + bins
+            each sentence 10 times.
+        valid.de / test.de:
+            sentence after bpe + <||> + bins
+            each sentence one time because we don't add noise to test or dev.
+        
+        train.en:
+            phonemes of each sentence with the duration of each phoneme
+            each sentence repeated 10 to match the sentences of the source.
+        
+        valid.en / test.en:
+            phonemes of each sentence with the duration of each phoneme
+            no repetition
+
+        train.segments / val.segments / dev.segments:
+            durations of each segment in that file
+
+
+    """
+
+
     write_to_file(train_de, os.path.join(output_dir, 'train.de'))
     write_to_file(dev_de, os.path.join(output_dir, 'valid.de'))
     write_to_file(test_de, os.path.join(output_dir, 'test.de'))
@@ -225,9 +284,11 @@ if __name__ == "__main__":
                         help="BPE codes for de side")
     parser.add_argument("--bpe-en", default='data/training/en_codes_10k_mfa',
                         help="BPE codes for en side")
-    parser.add_argument("--force-redo", "-f", action='store_true',
+    parser.add_argument("--force-redo", "-f", action='store_true', # if force redo is False and path already exists: don't create datasets again, else make a new directory 
                         help="Redo datasets even if the output directory already exists")
-    parser.add_argument("--write-segments-to-file", action='store_true',
+    # For use with factored models, make sure you use the --write-segments-to-file option,
+    #  since that will generate some files required for generating the factored data.
+    parser.add_argument("--write-segments-to-file", action='store_true', 
                         help="Write unnoise and unbinned segment durations to a separate file")
 
     # Other arguments
@@ -243,17 +304,25 @@ if __name__ == "__main__":
     # Read data
     train_tsv, dev_tsv, test_tsv = load_tsv(args.covost_dir)
     codes_de = codecs.open(args.bpe_de, encoding='utf-8')
-    bpe_de = BPE(codes_de)
+    # codes_de: the 10k codes files in german that will be sent to the BPE
+    bpe_de = BPE(codes_de) # bpe model that can be used to tokenize german sentences
     codes_en = codecs.open(args.bpe_en, encoding='utf-8')
     bpe_en = BPE(codes_en)
 
+    # durations_path: the pickle file 
     assert os.path.exists(args.durations_path), \
         "Run get_durations_frequencies.py first to get the dictionary of durations" \
         " and how many times each is observed in our data!"
     with open(args.durations_path, 'rb') as f:
         logging.info("Loading durations' frequencies")
         durations_pkl = pickle.load(f)
-    if not os.path.exists(args.processed_output_dir):
+    """
+    Pickle is a module in Python that provides a convenient way 
+    to serialize and deserialize objects. 
+    Serialization is the process of converting a Python object into a byte stream, 
+    and deserialization is the process of reconstructing the original object from the byte stream. 
+    """
+    if not os.path.exists(args.processed_output_dir): # the created datasets.
         os.makedirs(args.processed_output_dir)
 
     output_path = os.path.join(args.processed_output_dir, args.de_output_type)
@@ -278,15 +347,15 @@ if __name__ == "__main__":
         os.makedirs(output_path, exist_ok=True)
 
     logging.info("Building datasets")
-    build_datasets(data_path=args.input_mfa_dir,
-                   duration_freq=durations_pkl,
+    build_datasets(data_path=args.input_mfa_dir, # mfa file
+                   duration_freq=durations_pkl, 
                    de_output_type=args.de_output_type,
                    en_output_type=args.en_output_type,
-                   output_dir=output_path,
+                   output_dir=output_path, # processed_datasets
                    bpe_de=bpe_de,
                    bpe_en=bpe_en,
-                   tsvs=[train_tsv, dev_tsv, test_tsv],
-                   num_bins=args.num_bins,
-                   upsampling=args.upsampling,
-                   sd=args.noise_std,
+                   tsvs=[train_tsv, dev_tsv, test_tsv], # tsv files (each tsv file key: name, value (english + german sentences))
+                   num_bins=args.num_bins, #100
+                   upsampling=args.upsampling, #10
+                   sd=args.noise_std, #0.1
                    write_segments_to_file=args.write_segments_to_file)

@@ -33,19 +33,22 @@ covost_dir = './covost_tsv'
 train_tsv, dev_tsv, test_tsv = load_tsv(covost_dir)
 
 if not os.path.exists(durations_path):
-    duration_freq = defaultdict(int)
+    duration_freq = defaultdict(int) # (For all files) A dictionary: keys: integers (frames per segment) (0 frames, 1 frame, 2 frames, ..) values: number of occurence
 
-    for file in os.listdir(data_path):
+    for file in os.listdir(data_path): # covostmfa file
         name = file.split(".")[0]
         if os.path.isfile(os.path.join(data_path, name + ".json")):
-            data = json.load(open(os.path.join(data_path, name + ".json")))
+            data = json.load(open(os.path.join(data_path, name + ".json"))) # json content
         else:
             #print(file, "ignored")
             continue
         if name in train_tsv.keys():
+            # data: json content (start, end, tiers(dict of words(dict of type, entries), phones(also a dict)))
+            # count json with silences: number of files with silence.
+            # durations: number of frames per segment in each file.
             phones, duration_freq, count_jsons_with_silences, durations, pause_durations, _ = get_speech_durations(data, duration_freq,
                                                                                                count_jsons_with_silences, return_durations=True)
-
+            
             assert len(durations) >= 1
             counter += 1
             if counter % 50000 == 0:

@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 
-SRC_LANG = 'de'
+SRC_LANG = 'ar'
 TGT_LANG = 'en'
 SEGMENTS_SUFFIX = 'segments'
 
@@ -107,7 +107,7 @@ def calculate_factors(line, npause, segments, pad_token, no_shift=False, eow_fac
             text.append(line[token_pos])
             factors['DURATION'].append(int(line[token_pos + 1])) 
             """
-             because our train.de file consists of AH0 12 EH1 2, 
+             because our train.ar file consists of AH0 12 EH1 2, 
              so if a phoneme is found, we get the phoneme, add it to text, 
              then we get its duration and add it
              finally we skip two tokens.
@@ -182,7 +182,7 @@ if __name__ == '__main__':
 
     input_arg = parser.add_argument("--input-dir", "-i", required=True,
                                     help="Directory containing train, dev, and test sets")
-    # when calling the function: in our case: processed_datasets/de-text-noisy-durations0.1-en-phones-durations
+    # when calling the function: in our case: processed_datasets/ar-text-noisy-durations0.1-en-phones-durations
 
     parser.add_argument("--output-dir", "-o", default='multi_factored',
                         help=f"Subdirectory under {input_arg.metavar} for factors to be written to")
@@ -204,7 +204,7 @@ if __name__ == '__main__':
 
     args.output_dir = os.path.join(args.input_dir, args.output_dir)
     os.makedirs(args.output_dir, exist_ok=True)
-    # processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored
+    # processed_datasets/ar-text-noisy-durations0.1-en-phones-durations/multi_factored
 
     if args.no_shift:
         logging.warning("Shifting tokens is disabled. Make sure this matches what you want with Sockeye output factors. "

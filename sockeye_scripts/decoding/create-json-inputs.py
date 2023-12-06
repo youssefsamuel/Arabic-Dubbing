@@ -12,13 +12,13 @@ FACTOR_TYPES = [
 TEXT_PAD_TOKEN = '<shift>'
 SRC_SEGMENT_DELIMITER = '<||>'
 
-#$ python3 sockeye_scripts/decoding/create-json-inputs.py -d processed_datasets/de-text-noisy-durations0.1-en-phones-durations --subset test --output-segment-durations -o processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.de.json
+#$ python3 sockeye_scripts/decoding/create-json-inputs.py -d processed_datasets/ar-text-noisy-durations0.1-en-phones-durations --subset test --output-segment-durations -o processed_datasets/ar-text-noisy-durations0.1-en-phones-durations/test.ar.json
 
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument("--data-dir", "-d", required=True,
-                    help="Directory containing test.de/valid.de and the multi_factored[_eow] directory")
+                    help="Directory containing test.ar/valid.ar and the multi_factored[_eow] directory")
 parser.add_argument("--subset", required=True, choices=["valid", "test"],
                     help="Dataset to prepare (valid or test)")
 parser.add_argument("--output-segment-durations", action='store_true',
@@ -56,13 +56,13 @@ else: #Our case
     factor_dir = 'multi_factored'
 
 
-#data_dir: processed_datasets/de-text-noisy-durations0.1-en-phones-durations
+#data_dir: processed_datasets/ar-text-noisy-durations0.1-en-phones-durations
 
-#f_src:  processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.de
-#f_trg:  processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multifactored/test.en.text
-#f_segs: processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.segments
-#f_out:  processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.de.json
-with open(os.path.join(args.data_dir, args.subset+'.de')) as f_src, \
+#f_src:  processed_datasets/ar-text-noisy-durations0.1-en-phones-durations/test.ar
+#f_trg:  processed_datasets/ar-text-noisy-durations0.1-en-phones-durations/multifactored/test.en.text
+#f_segs: processed_datasets/ar-text-noisy-durations0.1-en-phones-durations/test.segments
+#f_out:  processed_datasets/ar-text-noisy-durations0.1-en-phones-durations/test.ar.json
+with open(os.path.join(args.data_dir, args.subset+'.ar')) as f_src, \
      open(os.path.join(args.data_dir, 'multi_factored', args.subset+'.en.text')) as f_trg, \
      open(os.path.join(args.data_dir, args.subset+'.segments')) as f_segs, \
      open(args.output, 'w') as f_out:
@@ -75,7 +75,7 @@ with open(os.path.join(args.data_dir, args.subset+'.de')) as f_src, \
     """
         we will create a dictionary for each line.
         keys:
-            1. text: test.de (source file)
+            1. text: test.ar (source file)
             2. target_prefix: <shift> (first token given to the model)
             3. target_prefix_factors: we get the first column of each multifactored file.
                 'duration'

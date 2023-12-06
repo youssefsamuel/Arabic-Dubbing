@@ -15,6 +15,11 @@ if [[ "$(which sockeye-train)" == "" ]]; then
 fi
 
 # Prepare data
+# source: german after bpe + <||> + bins
+# target: english phonemes
+
+# during training all the target factors are needed, 
+# however, for testing and validation we only need the first column
 if [[ ! -f ${MODEL_DIR}/prepared_data/shard.00000 ]]; then
     echo "Preparing data"
     sockeye-prepare-data \

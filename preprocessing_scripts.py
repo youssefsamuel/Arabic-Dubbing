@@ -51,14 +51,14 @@ class Bin:
 def load_tsv(path):
     dict_audio = {} # A dictionary of dictionaries. This dictionary has 3 keys: train, test, dev. Each key has a value which is also a dict of the names of files in that key.
     for i, split in enumerate(["train", "dev", "test"]):
-        with open(os.path.join(path, "covost_v2.en_de.{}.tsv".format(split))) as f:
+        with open(os.path.join(path, "covost_v2.en_ar.{}.tsv".format(split))) as f:
             lines = f.readlines()
             dict_audio[split] = {}
             for line in lines:
                 fields = line.split("\t")
                 name = fields[0].split(".")[0]
                 # dict_audio[split][name] = fields[1].strip('\"')
-                # fields[1] -> English Sentence, fields[2] -> German Sentence
+                # fields[1] -> English Sentence, fields[2] -> Arabic Sentence
                 dict_audio[split][name] = [fields[1].strip('\"'), fields[2].strip('\"')]
 
     return dict_audio["train"], dict_audio["dev"], dict_audio["test"] 

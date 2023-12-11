@@ -10,6 +10,11 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%Y-%m-%d %H:%M:%S')
 from preprocessing_scripts import load_tsv, add_noise_to_durations, get_speech_durations, Bin
 from subword_nmt.apply_bpe import BPE
+from farasa.segmenter import FarasaSegmenter
+from farasa.pos import FarasaPOSTagger
+from farasa.ner import FarasaNamedEntityRecognizer
+from farasa.diacratizer import FarasaDiacritizer
+from farasa.stemmer import FarasaStemmer
 
 
 AR_OUTPUT_CHOICES_WITH_DURATIONS = {
@@ -47,6 +52,8 @@ def build_datasets(data_path,
     train_segments, dev_segments, test_segments = [], [], []
     return_durations = False
     return_text = False
+    segmenter = FarasaSegmenter(interactive=True)
+
 
     all_included_keys = set().union(train_tsv.keys(), dev_tsv.keys(), test_tsv.keys())
 
@@ -140,26 +147,26 @@ def build_datasets(data_path,
             sentence_segments = []
             if ar_output_type == 'ar-text-clean-durations':
                 if num_bins > 0:
-                    sentence = [bpe_ar.process_line(train_tsv[name][1]) + " <||> " + " ".join(bins)]
+                    sentence = [bpe_ar.process_line(segmenter.segment(train_tsv[name][1]).replace('+', ' ')) + " <||> " + " ".join(bins)]
                 else: # case of no bins (rarely occurs)
-                    sentence = [bpe_ar.process_line(train_tsv[name][1]) + " <||> " + " ".join(map(str, durations))]
+                    sentence = [bpe_ar.process_line(segmenter.segment(train_tsv[name][1]).replace('+', ' ')) + " <||> " + " ".join(map(str, durations))]
                 if return_durations and write_segments_to_file:
                     sentence_segments = [" ".join(map(str, durations))]
             elif ar_output_type == 'ar-text-noisy-durations':
                 sentence = []
                 for i in range(upsampling):
                     if num_bins > 0:
-                        sentence.append(bpe_ar.process_line(train_tsv[name][1]) + " <||> " + " ".join(noisy_bins[i]))
+                        sentence.append(bpe_ar.process_line(segmenter.segment(train_tsv[name][1]).replace('+', ' ')) + " <||> " + " ".join(noisy_bins[i]))
                     else:
-                        sentence.append(bpe_ar.process_line(train_tsv[name][1]) + " <||> " + " ".join(map(str, noisy_durations_rearrange_int[i])))
+                        sentence.append(bpe_ar.process_line(segmenter.segment(train_tsv[name][1]).replace('+', ' ')) + " <||> " + " ".join(map(str, noisy_durations_rearrange_int[i])))
                     if return_durations and write_segments_to_file:
                         sentence_segments.append(" ".join(map(str, noisy_durations_rearrange_int[i])))
             elif ar_output_type == 'ar-text-dummy-durations':
-                sentence = [bpe_ar.process_line(train_tsv[name][1]) + " <||> " + " ".join(temp)]
+                sentence = [bpe_ar.process_line(segmenter.segment(train_tsv[name][1]).replace('+', ' ')) + " <||> " + " ".join(temp)]
                 if return_durations and write_segments_to_file:
                     sentence_segments = [" ".join(map(str, durations))]
             elif ar_output_type == 'ar-text-without-durations':
-                sentence = [bpe_ar.process_line(train_tsv[name][1])]
+                sentence = [bpe_ar.process_line(segmenter.segment(train_tsv[name][1]).replace('+', ' '))]
                 if return_durations and write_segments_to_file:
                     sentence_segments = [" ".join(map(str, durations))]
 
@@ -188,16 +195,17 @@ def build_datasets(data_path,
                 curr_en = test_en
                 curr_segments = test_segments
 
-            # Source side (German)
+            # Source side (Arabic)
+            
             if ar_output_type == 'ar-text-noisy-durations' or ar_output_type == 'ar-text-clean-durations':
                 if num_bins > 0:
-                    sentence = bpe_ar.process_line(curr_tsv[name][1]) + " <||> " + " ".join(bins)
+                    sentence = bpe_ar.process_line(segmenter.segment(curr_tsv[name][1]).replace('+', ' ')) + " <||> " + " ".join(bins)
                 else:
-                    sentence = bpe_ar.process_line(curr_tsv[name][1]) + " <||> " + " ".join(map(str, durations))
+                    sentence = bpe_ar.process_line(segmenter.segment(curr_tsv[name][1]).replace('+', ' ')) + " <||> " + " ".join(map(str, durations))
             elif ar_output_type == 'ar-text-dummy-durations':
-                sentence = bpe_ar.process_line(curr_tsv[name][1]) + " <||> " + " ".join(temp)
+                sentence = bpe_ar.process_line(segmenter.segment(curr_tsv[name][1]).replace('+', ' ')) + " <||> " + " ".join(temp)
             elif ar_output_type == 'ar-text-without-durations':
-                sentence = bpe_ar.process_line(curr_tsv[name][1])
+                sentence = bpe_ar.process_line(segmenter.segment(curr_tsv[name][1]).replace('+', ' '))
             if return_durations and write_segments_to_file:
                 curr_segments.append(" ".join(map(str, durations)))
 

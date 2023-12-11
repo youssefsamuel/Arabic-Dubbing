@@ -17,10 +17,19 @@ from pydub import AudioSegment
 
 from preprocessing_scripts import Bin
 
+"""
+Summary of the whole file:
 
-SEGMENT_DURATION_SEPARATOR = ' <||> '
-FACTOR_DELIMITER = '|'
-EOW = '<eow>'
+1- Voice Activity Detection (VAD): Detects speech segments and pauses in the input audio using the Silero VAD model.
+2- Text Processing and Translation: Processes the source text, applies Byte Pair Encoding (BPE), and translates the text using the Sockeye model.
+3- FastSpeech2 Synthesis: Uses the FastSpeech2 model to synthesize phoneme and duration outputs.
+4- Audio and Video Generation: Combines the synthesized audio segments with the original video, adding pauses and creating final dubbed videos.
+5- Cleanup: Removes some files.
+"""
+
+SEGMENT_DURATION_SEPARATOR = ' <||> ' 
+FACTOR_DELIMITER = '|' #used to separate different factors or components in a string, likely in the context of the Sockeye translation factors.
+EOW = '<eow>' 
 PAUSE = '[pause]'
 SHIFT= '<shift>'
 SAMPLING_RATE = 22050
@@ -30,6 +39,12 @@ HOP_LENGTH = 256
 def get_sorted_audio_files(data_dir):
     """
     Get all the wav files in the directory named `*.Y.wav` and return them sorted numerically by `Y`
+
+    input example:
+    common_voice_en_511071.wav
+    common_voice_en_67895.wav
+    common_voice_en_217222.wav
+    common_voice_en_19191100.wav
     """
     files = [f for f in os.listdir(data_dir) if f.endswith('.wav')]
     files = sorted(files, key=lambda f: int(f.split('.')[-2]))
@@ -38,36 +53,50 @@ def get_sorted_audio_files(data_dir):
 
 class SileroVad:
     """
-    Wrapper around Silero voice activity detection
+    VAD is a technique used in speech processing to identify regions of an audio signal that contain speech and distinguish them from non-speech regions (such as silence or background noise)
     """
     def __init__(self):
         self.sampling_rate = 16000
+        """
+        self.model: Loads the Silero VAD model using PyTorch's torch.hub.load function. The model is retrieved from the specified repository (snakers4/silero-vad).
+        """
         self.model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
                                            model='silero_vad',
                                            force_reload=False,
                                            onnx=False)
         (self.get_speech_timestamps, _, self.read_audio, _, _) = utils
+        """
+        self.get_speech_timestamps: References a function for obtaining start and end timestamps of speech segments.
+        self.read_audio: References a function for reading audio files.
+        """
 
     def get_timestamps(self, wav_file):
         """
         Get list of start and end timestamps of speech segments and lengths of pauses
+        ____________________________________________________________________________________________________
+        It takes a WAV file as input and returns a list of start and end timestamps of speech segments and lengths of pauses.
+        + Uses the Silero VAD model to process the audio and identify speech segments.
+        + Optionally visualizes probabilities and sets a threshold for speech detection.
         """
         wav = self.read_audio(wav_file, sampling_rate=self.sampling_rate)
         speech_timestamps = self.get_speech_timestamps(wav, self.model, sampling_rate=self.sampling_rate,
                                                        min_silence_duration_ms=300, visualize_probs=False,
                                                        threshold=0.3, return_seconds=True)
-
+        """
+        "speech_timestamps": an aobject that will contain a list of dictionaries where each dictionary represents a detected speech segment. Each dictionary typically includes information about the start and end times of the speech segment. Here's an explanation of the key information:
+        """
         pauses = []
         if len(speech_timestamps) > 1:
-            for i, pair in enumerate(speech_timestamps):
+            for i, pair in enumerate(speech_timestamps): #enumerate get both the index i and the corresponding pair.
                 if i == 0:
                     previous_start, previous_end = pair["start"], pair["end"]
+                    #No pause is calculated or appended in the first iteration.
                 else:
                     current_start, current_end = pair["start"], pair["end"]
                     pause = current_start - previous_end
-                    pauses.append(round(pause, 3))
+                    pauses.append(round(pause, 3)) #round to 3 decimal places
                     previous_start, previous_end = pair["start"], pair["end"]
-
+                    #previous_start and previous_end are updated for the next iteration.
         return speech_timestamps, pauses
 
 
@@ -88,7 +117,9 @@ class SockeyeTranslator:
                            '--force-factors-stepwise', 'frames', 'total_remaining', 'segment_remaining', 'pauses_remaining',
                            '--json-input'
                           ]
-
+        """
+        This sockeye_command is later used in the script with subprocess.Popen to execute the Sockeye translation command. The command will use the specified Sockeye model to perform translation with certain settings and output the results with additional factors related to frames, total remaining, segment remaining, and pauses remaining.
+        """
         logging.info(f"Running Sockeye command: {' '.join(sockeye_command)}")
         self.sockeye_process = Popen(sockeye_command, stdin=PIPE, stdout=PIPE, stderr=DEVNULL, env=os.environ,
                                      text=True, encoding='utf-8', universal_newlines=True, bufsize=1)
@@ -102,7 +133,18 @@ class SockeyeTranslator:
         self.sockeye_process.stdin.write(json_line + '\n')
         self.sockeye_process.stdin.flush()
         return self.sockeye_process.stdout.readline()
+        """
+        Parameters:
+        line: The input text (presumably a sentence) to be translated.
+        segments: The segments or durations associated with the input text.
 
+        Actions:
+        Calls the make_json_input method to create a JSON-formatted input based on the input text and segments.
+        Logs the input being sent to Sockeye-translate for debugging purposes.
+        Writes the JSON-formatted input to the standard input of the Sockeye process.
+        Flushes the standard input buffer.
+        Returns the translation result read from the standard output of the Sockeye process.
+        """
     def make_json_input(self, line, segment_durations):
         """
         Create the JSON-formatted input for target factor prefixes etc.
@@ -172,7 +214,30 @@ if __name__ == '__main__':
     with open(args.source_text) as f_src:
         src_text = f_src.readlines()
     assert len(audio_files) == len(src_text), "Number of audio files and number of lines in source text did not match."
+    """
+    Processing Audio Files and Source Text:
+    Obtains a sorted list of audio files (audio_files) from the specified directory.
+    Reads lines of source text (src_text) from the provided source text file.
+    Asserts that the number of audio files and lines in the source text match.
 
+    BPE Processing and Duration Binning:
+    Creates a BPE processor (bpe_de) using the provided BPE codes.
+    Loads duration frequencies for binning using a Bin instance.
+    Initializes a SileroVad instance for voice activity detection.
+    Initializes a SockeyeTranslator instance for translation.
+
+    Translation and Processing:
+    Iterates over audio files, extracting speech timestamps and pauses using Silero VAD.
+    Applies binning to segment durations and performs BPE encoding on source text segments.
+    Translates the BPE-encoded text using Sockeye, writing the output to files.
+    Processes the translation output, removing certain tokens and splitting on [pause].
+
+    FastSpeech2 Synthesis and Audio/Video Generation:
+    Runs FastSpeech2 on the generated phoneme and duration outputs.
+    Reconstructs final audio segments, considering pauses and adjusting if required.
+    Exports the final audio segments to WAV files.
+    Embeds the audio onto video if corresponding video files exist.
+    """
     # Create BPE processor
     bpe_de = BPE(open(args.bpe_de))
 

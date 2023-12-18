@@ -10,14 +10,14 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%Y-%m-%d %H:%M:%S')
 from preprocessing_scripts import load_tsv, add_noise_to_durations, get_speech_durations, Bin
 from subword_nmt.apply_bpe import BPE
+from arabert import ArabertPreprocessor
 
-
-DE_OUTPUT_CHOICES_WITH_DURATIONS = {
-    'de-text-clean-durations',
-    'de-text-noisy-durations',
-    'de-text-dummy-durations'
+AR_OUTPUT_CHOICES_WITH_DURATIONS = {
+    'ar-text-clean-durations',
+    'ar-text-noisy-durations',
+    'ar-text-dummy-durations'
 }
-DE_OUTPUT_CHOICES = DE_OUTPUT_CHOICES_WITH_DURATIONS.add('de-text-without-durations')
+AR_OUTPUT_CHOICES = AR_OUTPUT_CHOICES_WITH_DURATIONS.add('ar-text-without-durations')
 
 EN_OUTPUT_CHOICES = {
     'en-text-without-durations',
@@ -28,10 +28,10 @@ EN_OUTPUT_CHOICES = {
 
 def build_datasets(data_path,
                    duration_freq,
-                   de_output_type,
+                   ar_output_type,
                    en_output_type,
                    output_dir,
-                   bpe_de,
+                   bpe_ar,
                    bpe_en,
                    tsvs,
                    num_bins=100,
@@ -42,11 +42,24 @@ def build_datasets(data_path,
         bin_instance = Bin(duration_freq, n=num_bins)
     counter = 0
     train_tsv, dev_tsv, test_tsv = tsvs
-    train_de, dev_de, test_de = [], [], [] 
+    train_ar, dev_ar, test_ar = [], [], [] 
     train_en, dev_en, test_en = [], [], []
     train_segments, dev_segments, test_segments = [], [], []
     return_durations = False
     return_text = False
+    arabert_preprocessor = ArabertPreprocessor(
+        model_name= "aubmindlab/bert-base-arabertv2",
+        keep_emojis = False,
+        remove_html_markup = True,
+        replace_urls_emails_mentions = True,
+        strip_tashkeel = True,
+        strip_tatweel = True,
+        insert_white_spaces = False,
+        remove_non_digit_repetition = True,
+        replace_slash_with_dash = True,
+        map_hindi_numbers_to_arabic = True,
+        apply_farasa_segmentation = True
+    )
 
     all_included_keys = set().union(train_tsv.keys(), dev_tsv.keys(), test_tsv.keys())
 
@@ -79,11 +92,11 @@ def build_datasets(data_path,
         if return_durations:
             assert len(durations) >= 1
 
-        if de_output_type in DE_OUTPUT_CHOICES_WITH_DURATIONS:
+        if ar_output_type in AR_OUTPUT_CHOICES_WITH_DURATIONS:
             if num_bins > 0:
                 bins = bin_instance.find_bin(speech_durations=durations) # number of frames in each segment in that file 
 
-            # noisy or dummy durations for De
+            # noisy or dummy durations for Ar
             """
             up sampling is used for data augmentation.
             we will get the durations (number of frames per segment for that file)
@@ -106,7 +119,7 @@ def build_datasets(data_path,
 
             noisy_durations_rearrange_int: 10 lists, each sublist 3 (same as noisy bins) but rounded.
             """
-            if de_output_type == 'de-text-noisy-durations':
+            if ar_output_type == 'ar-text-noisy-durations':
                 noisy_durations = add_noise_to_durations(durations, sd, upsampling)
                 if num_bins > 0:
                     noisy_bins = [[] for _ in range(upsampling)]
@@ -118,59 +131,59 @@ def build_datasets(data_path,
                 for dur in noisy_durations:
                     for i in range(upsampling):
                         noisy_durations_rearrange_int[i].append(round(dur[i]))
-            elif de_output_type == 'de-text-dummy-durations':
+            elif ar_output_type == 'ar-text-dummy-durations':
                 temp = []
                 for _ in range(len(bins)):
                     temp.append(' <X>')
 
         if en_output_type == 'en-phones-durations':
-            if de_output_type in DE_OUTPUT_CHOICES_WITH_DURATIONS:
+            if ar_output_type in AR_OUTPUT_CHOICES_WITH_DURATIONS:
                 assert pauses_count == len(durations) - 1
 
         if name in train_tsv.keys():
-            # Source side (German)
+            # Source side (Arabic)
             """
                 if name in train:
-                    if de.clean:
-                        sentence = de sentece tokenized by bpe + <||> + bins
+                    if ar.clean:
+                        sentence = ar sentece tokenized by bpe + <||> + bins
                     
                     if noisy:
                         put the sentence 10 times with corresponding bins.
                 """
             sentence_segments = []
-            if de_output_type == 'de-text-clean-durations':
+            if ar_output_type == 'ar-text-clean-durations':
                 if num_bins > 0:
-                    sentence = [bpe_de.process_line(train_tsv[name][1]) + " <||> " + " ".join(bins)]
+                    sentence = [bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(bins)]
                 else: # case of no bins (rarely occurs)
-                    sentence = [bpe_de.process_line(train_tsv[name][1]) + " <||> " + " ".join(map(str, durations))]
+                    sentence = [bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(map(str, durations))]
                 if return_durations and write_segments_to_file:
                     sentence_segments = [" ".join(map(str, durations))]
-            elif de_output_type == 'de-text-noisy-durations':
+            elif ar_output_type == 'ar-text-noisy-durations':
                 sentence = []
                 for i in range(upsampling):
                     if num_bins > 0:
-                        sentence.append(bpe_de.process_line(train_tsv[name][1]) + " <||> " + " ".join(noisy_bins[i]))
+                        sentence.append(bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(noisy_bins[i]))
                     else:
-                        sentence.append(bpe_de.process_line(train_tsv[name][1]) + " <||> " + " ".join(map(str, noisy_durations_rearrange_int[i])))
+                        sentence.append(bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(map(str, noisy_durations_rearrange_int[i])))
                     if return_durations and write_segments_to_file:
                         sentence_segments.append(" ".join(map(str, noisy_durations_rearrange_int[i])))
-            elif de_output_type == 'de-text-dummy-durations':
-                sentence = [bpe_de.process_line(train_tsv[name][1]) + " <||> " + " ".join(temp)]
+            elif ar_output_type == 'ar-text-dummy-durations':
+                sentence = [bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(temp)]
                 if return_durations and write_segments_to_file:
                     sentence_segments = [" ".join(map(str, durations))]
-            elif de_output_type == 'de-text-without-durations':
-                sentence = [bpe_de.process_line(train_tsv[name][1])]
+            elif ar_output_type == 'ar-text-without-durations':
+                sentence = [bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', ''))]
                 if return_durations and write_segments_to_file:
                     sentence_segments = [" ".join(map(str, durations))]
 
-            train_de.extend(sentence)
+            train_ar.extend(sentence)
             train_segments.extend(sentence_segments)
 
             # Target side (English)
             if en_output_type == 'en-text-without-durations':
                 train_en.append(bpe_en.process_line(text))
             elif en_output_type.startswith('en-phones'):
-                if de_output_type != 'de-text-noisy-durations':
+                if ar_output_type != 'ar-text-noisy-durations':
                     train_en.append(" ".join(phones))
                 else:
                     for _ in range(upsampling):
@@ -179,29 +192,30 @@ def build_datasets(data_path,
         elif name in dev_tsv.keys() or name in test_tsv.keys():
             if name in dev_tsv.keys():
                 curr_tsv = dev_tsv
-                curr_de = dev_de
+                curr_ar = dev_ar
                 curr_en = dev_en
                 curr_segments = dev_segments
             else:
                 curr_tsv = test_tsv
-                curr_de = test_de
+                curr_ar = test_ar
                 curr_en = test_en
                 curr_segments = test_segments
 
-            # Source side (German)
-            if de_output_type == 'de-text-noisy-durations' or de_output_type == 'de-text-clean-durations':
+            # Source side (Arabic)
+            
+            if ar_output_type == 'ar-text-noisy-durations' or ar_output_type == 'ar-text-clean-durations':
                 if num_bins > 0:
-                    sentence = bpe_de.process_line(curr_tsv[name][1]) + " <||> " + " ".join(bins)
+                    sentence = bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(bins)
                 else:
-                    sentence = bpe_de.process_line(curr_tsv[name][1]) + " <||> " + " ".join(map(str, durations))
-            elif de_output_type == 'de-text-dummy-durations':
-                sentence = bpe_de.process_line(curr_tsv[name][1]) + " <||> " + " ".join(temp)
-            elif de_output_type == 'de-text-without-durations':
-                sentence = bpe_de.process_line(curr_tsv[name][1])
+                    sentence = bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(map(str, durations))
+            elif ar_output_type == 'ar-text-dummy-durations':
+                sentence = bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(temp)
+            elif ar_output_type == 'ar-text-without-durations':
+                sentence = bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', ''))
             if return_durations and write_segments_to_file:
                 curr_segments.append(" ".join(map(str, durations)))
 
-            curr_de.append(sentence)
+            curr_ar.append(sentence)
 
             # Target side (English)
             if en_output_type == 'en-text-without-durations':
@@ -214,15 +228,15 @@ def build_datasets(data_path,
 
 
     """
-       in case of de text without + eng text without durations:
+       in case of ar text without + eng text without durations:
             sentences after bpe (no bins, no durations)
         
 
-       in case of de text noisy + english phones durations:
-        train.de:
+       in case of ar text noisy + english phones durations:
+        train.ar:
             sentence after bpe + <||> + bins
             each sentence 10 times.
-        valid.de / test.de:
+        valid.ar / test.ar:
             sentence after bpe + <||> + bins
             each sentence one time because we don't add noise to test or dev.
         
@@ -241,9 +255,9 @@ def build_datasets(data_path,
     """
 
 
-    write_to_file(train_de, os.path.join(output_dir, 'train.de'))
-    write_to_file(dev_de, os.path.join(output_dir, 'valid.de'))
-    write_to_file(test_de, os.path.join(output_dir, 'test.de'))
+    write_to_file(train_ar, os.path.join(output_dir, 'train.ar'))
+    write_to_file(dev_ar, os.path.join(output_dir, 'valid.ar'))
+    write_to_file(test_ar, os.path.join(output_dir, 'test.ar'))
     write_to_file(train_en, os.path.join(output_dir, 'train.en'))
     write_to_file(dev_en, os.path.join(output_dir, 'valid.en'))
     write_to_file(test_en, os.path.join(output_dir, 'test.en'))
@@ -265,8 +279,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # Required arguments
-    parser.add_argument("--de-output-type", "--de", required=True,
-                        choices=DE_OUTPUT_CHOICES)
+    parser.add_argument("--ar-output-type", "--ar", required=True,
+                        choices=AR_OUTPUT_CHOICES)
     parser.add_argument("--en-output-type", "--en", required=True,
                         choices=EN_OUTPUT_CHOICES)
 
@@ -280,8 +294,8 @@ if __name__ == "__main__":
     parser.add_argument("--durations-path", default='durations_freq_all.pkl',
                         help="Pickle file containing dictionary of durations"
                         " and corresponding frequencies")
-    parser.add_argument("--bpe-de", default='data/training/de_codes_10k',
-                        help="BPE codes for de side")
+    parser.add_argument("--bpe-ar", default='data/training/ar_codes_10k',
+                        help="BPE codes for ar side")
     parser.add_argument("--bpe-en", default='data/training/en_codes_10k_mfa',
                         help="BPE codes for en side")
     parser.add_argument("--force-redo", "-f", action='store_true', # if force redo is False and path already exists: don't create datasets again, else make a new directory 
@@ -303,9 +317,9 @@ if __name__ == "__main__":
 
     # Read data
     train_tsv, dev_tsv, test_tsv = load_tsv(args.covost_dir)
-    codes_de = codecs.open(args.bpe_de, encoding='utf-8')
-    # codes_de: the 10k codes files in german that will be sent to the BPE
-    bpe_de = BPE(codes_de) # bpe model that can be used to tokenize german sentences
+    codes_ar = codecs.open(args.bpe_ar, encoding='utf-8')
+    # codes_ar: the 10k codes files in arabic that will be sent to the BPE
+    bpe_ar = BPE(codes_ar) # bpe model that can be used to tokenize german sentences
     codes_en = codecs.open(args.bpe_en, encoding='utf-8')
     bpe_en = BPE(codes_en)
 
@@ -325,18 +339,18 @@ if __name__ == "__main__":
     if not os.path.exists(args.processed_output_dir): # the created datasets.
         os.makedirs(args.processed_output_dir)
 
-    output_path = os.path.join(args.processed_output_dir, args.de_output_type)
+    output_path = os.path.join(args.processed_output_dir, args.ar_output_type)
     if args.num_bins == 0:
         logging.warning("Binning of source segment durations is turned off. "
                         "This is not expected for any of the default models. "
                         "Run with --num-bins > 0 if this was not intentional.")
         output_path += '-unbinned'
-    if args.de_output_type == 'de-text-noisy-durations':
+    if args.ar_output_type == 'ar-text-noisy-durations':
         if args.noise_std == 0.0:
-            logging.error(f"You probably want non-zero noise with {args.de_output_type}")
+            logging.error(f"You probably want non-zero noise with {args.ar_output_type}")
             sys.exit(1)
         output_path += str(args.noise_std)
-        logging.info(f"Will add noise to speech durations in De and upsample by {args.upsampling}.")
+        logging.info(f"Will add noise to speech durations in Ar and upsample by {args.upsampling}.")
     output_path += '-' + args.en_output_type
     logging.info(f"Setting output directory to {output_path}")
 
@@ -349,10 +363,10 @@ if __name__ == "__main__":
     logging.info("Building datasets")
     build_datasets(data_path=args.input_mfa_dir, # mfa file
                    duration_freq=durations_pkl, 
-                   de_output_type=args.de_output_type,
+                   ar_output_type=args.ar_output_type,
                    en_output_type=args.en_output_type,
                    output_dir=output_path, # processed_datasets
-                   bpe_de=bpe_de,
+                   bpe_ar=bpe_ar,
                    bpe_en=bpe_en,
                    tsvs=[train_tsv, dev_tsv, test_tsv], # tsv files (each tsv file key: name, value (english + german sentences))
                    num_bins=args.num_bins, #100

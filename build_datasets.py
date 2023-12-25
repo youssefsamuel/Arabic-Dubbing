@@ -8,7 +8,7 @@ import logging
 logging.basicConfig(level=logging.INFO,
                     format='[%(asctime)s][%(levelname)s] %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
-from preprocessing_scripts import load_tsv, add_noise_to_durations, get_speech_durations, Bin
+from preprocessing_scripts import load_tsv, add_noise_to_durations, get_speech_durations, Bin, replace_preprocessing_spaces
 from subword_nmt.apply_bpe import BPE
 from arabert import ArabertPreprocessor
 
@@ -153,26 +153,26 @@ def build_datasets(data_path,
             sentence_segments = []
             if ar_output_type == 'ar-text-clean-durations':
                 if num_bins > 0:
-                    sentence = [bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(bins)]
+                    sentence = [replace_preprocessing_spaces(train_tsv[name][1], bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', ''))) + " <||> " + " ".join(bins)]
                 else: # case of no bins (rarely occurs)
-                    sentence = [bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(map(str, durations))]
+                    sentence = [replace_preprocessing_spaces(train_tsv[name][1], bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', ''))) + " <||> " + " ".join(map(str, durations))]
                 if return_durations and write_segments_to_file:
                     sentence_segments = [" ".join(map(str, durations))]
             elif ar_output_type == 'ar-text-noisy-durations':
                 sentence = []
                 for i in range(upsampling):
                     if num_bins > 0:
-                        sentence.append(bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(noisy_bins[i]))
+                        sentence.append(replace_preprocessing_spaces(train_tsv[name][1], bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', ''))) + " <||> " + " ".join(noisy_bins[i]))
                     else:
-                        sentence.append(bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(map(str, noisy_durations_rearrange_int[i])))
+                        sentence.append(replace_preprocessing_spaces(train_tsv[name][1], bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', ''))) + " <||> " + " ".join(map(str, noisy_durations_rearrange_int[i])))
                     if return_durations and write_segments_to_file:
                         sentence_segments.append(" ".join(map(str, noisy_durations_rearrange_int[i])))
             elif ar_output_type == 'ar-text-dummy-durations':
-                sentence = [bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(temp)]
+                sentence = [replace_preprocessing_spaces(train_tsv[name][1], bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', ''))) + " <||> " + " ".join(temp)]
                 if return_durations and write_segments_to_file:
                     sentence_segments = [" ".join(map(str, durations))]
             elif ar_output_type == 'ar-text-without-durations':
-                sentence = [bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', ''))]
+                sentence = [replace_preprocessing_spaces(train_tsv[name][1], bpe_ar.process_line(arabert_preprocessor.preprocess(train_tsv[name][1]).replace('+', '')))]
                 if return_durations and write_segments_to_file:
                     sentence_segments = [" ".join(map(str, durations))]
 
@@ -205,13 +205,13 @@ def build_datasets(data_path,
             
             if ar_output_type == 'ar-text-noisy-durations' or ar_output_type == 'ar-text-clean-durations':
                 if num_bins > 0:
-                    sentence = bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(bins)
+                    sentence = replace_preprocessing_spaces(curr_tsv[name][1], bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', ''))) + " <||> " + " ".join(bins)
                 else:
-                    sentence = bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(map(str, durations))
+                    sentence = replace_preprocessing_spaces(curr_tsv[name][1], bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', ''))) + " <||> " + " ".join(map(str, durations))
             elif ar_output_type == 'ar-text-dummy-durations':
-                sentence = bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', '')) + " <||> " + " ".join(temp)
+                sentence = replace_preprocessing_spaces(curr_tsv[name][1], bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', ''))) + " <||> " + " ".join(temp)
             elif ar_output_type == 'ar-text-without-durations':
-                sentence = bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', ''))
+                sentence = replace_preprocessing_spaces(curr_tsv[name][1], bpe_ar.process_line(arabert_preprocessor.preprocess(curr_tsv[name][1]).replace('+', '')))
             if return_durations and write_segments_to_file:
                 curr_segments.append(" ".join(map(str, durations)))
 
@@ -294,7 +294,7 @@ if __name__ == "__main__":
     parser.add_argument("--durations-path", default='durations_freq_all.pkl',
                         help="Pickle file containing dictionary of durations"
                         " and corresponding frequencies")
-    parser.add_argument("--bpe-ar", default='data/training/ar_codes_20k',
+    parser.add_argument("--bpe-ar", default='data/training/ar_codes_10k',
                         help="BPE codes for ar side")
     parser.add_argument("--bpe-en", default='data/training/en_codes_10k_mfa',
                         help="BPE codes for en side")

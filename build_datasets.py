@@ -294,7 +294,7 @@ if __name__ == "__main__":
     parser.add_argument("--durations-path", default='durations_freq_all.pkl',
                         help="Pickle file containing dictionary of durations"
                         " and corresponding frequencies")
-    parser.add_argument("--bpe-ar", default='data/training/ar_codes_10k',
+    parser.add_argument("--bpe-ar", default='data/training/ar_codes_20k',
                         help="BPE codes for ar side")
     parser.add_argument("--bpe-en", default='data/training/en_codes_10k_mfa',
                         help="BPE codes for en side")

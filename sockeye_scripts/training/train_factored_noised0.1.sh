@@ -2,10 +2,10 @@
 set -Eeuo pipefail
 source `dirname $0`/../config
 
-SRC=de
+SRC=ar
 TGT=en
 
-DATA_DIR=${DATA_HOME}/de-text-noisy-durations0.1-en-phones-durations
+DATA_DIR=${DATA_HOME}/ar-text-noisy-durations0.1-en-phones-durations
 MODEL_DIR=${MODELS_HOME}/baseline_factored_noised0.1
 mkdir -p ${MODEL_DIR}
 

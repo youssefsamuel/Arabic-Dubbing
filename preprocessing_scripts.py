@@ -19,7 +19,7 @@ import numpy as np
 import numpy
 from matplotlib import pyplot as plt
 from scipy import stats
-
+import difflib
 
 class Bin:
     def __init__(self, durations_freq, n=200):

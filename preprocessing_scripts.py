@@ -150,21 +150,3 @@ def add_noise_to_durations(durations, sd, upsampling):
         noisy_durations.append(noisy_duration_temp)
         k += upsampling
     return noisy_durations
-
-def replace_preprocessing_spaces(original_text, modified_text):
-    d = difflib.Differ()
-    diff = list(d.compare(original_text, modified_text))
-    added_spaces_with_indices = [(item[2:], i) for i, item in enumerate(diff) if item.startswith('+ ') and not item.startswith('+ @@ ')]
-    i = 0
-    while i < len(added_spaces_with_indices):
-        if added_spaces_with_indices[i][0] == '@':
-            del added_spaces_with_indices[i:i+3]
-        else:
-            i += 1
-    added_spaces_with_indices=added_spaces_with_indices[:-1]
-    aiding_counter = 0
-    for _, index in added_spaces_with_indices:
-        modified_text = modified_text[:index+aiding_counter] + '@@ ' + modified_text[index + aiding_counter + 1:]
-        aiding_counter+=2
-
-    return modified_text

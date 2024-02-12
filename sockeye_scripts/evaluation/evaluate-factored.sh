@@ -2,24 +2,40 @@
 set -Eeuo pipefail
 source `dirname $0`/../config
 
-REF=$1
-HYP=$2
+
+# calling line: ./sockeye_scripts/evaluation/evaluate-factored.sh processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.en models/sockeye/trained_baselines/baseline_factored_noised0.1/eval/test.en.output
+
+
+#ROOT=/content/Arabic-Dubbing
+#DATA_HOME=${ROOT}/processed_datasets
+#MODELS_HOME=${ROOT}/models/sockeye
+
+REF=$1 #processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.en
+# English phonemes with durations from the dataset not the model output 
+
+HYP=$2 #models/sockeye/trained_baselines/baseline_factored_noised0.1/eval/test.en.output
+# English phonemes with durations (the model output) 
+
 
 EVAL_DIR=`dirname ${HYP}`
 P2G_DIR=${ROOT}/models/phoneme_to_grapheme
 
-if [[ ! -s ${DATA_HOME}/de-text-without-durations-en-text-without-durations/test.en ]]; then
-    echo "Please generate ${DATA_HOME}/de-text-without-durations-en-text-without-durations first. This is required for the reference text."
+if [[ ! -s ${DATA_HOME}/ar-text-without-durations-en-text-without-durations/test.en ]]; then
+    echo "Please generate ${DATA_HOME}/ar-text-without-durations-en-text-without-durations first. This is required for the reference text."
     exit 1
 else
-    REF_TEXT=${DATA_HOME}/de-text-without-durations-en-text-without-durations/test.debpe.en
-    SRC_TEXT=${DATA_HOME}/de-text-without-durations-en-text-without-durations/test.debpe.de
+    # REF_TEXT: english words without bpe (test dataset)
+    # SRC_TEXT: arabic words without bpe (test dataset)
+
+    REF_TEXT=${DATA_HOME}/ar-text-without-durations-en-text-without-durations/test.debpe.en 
+    SRC_TEXT=${DATA_HOME}/ar-text-without-durations-en-text-without-durations/test.debpe.ar
     if [[ ! -s ${REF_TEXT} ]]; then
-        sed -r 's/(@@ )|(@@ ?$)//g' ${DATA_HOME}/de-text-without-durations-en-text-without-durations/test.en > ${REF_TEXT}
-        sed -r 's/(@@ )|(@@ ?$)//g' ${DATA_HOME}/de-text-without-durations-en-text-without-durations/test.de > ${SRC_TEXT}
+        sed -r 's/(@@ )|(@@ ?$)//g' ${DATA_HOME}/ar-text-without-durations-en-text-without-durations/test.en > ${REF_TEXT}
+        sed -r 's/(@@ )|(@@ ?$)//g' ${DATA_HOME}/ar-text-without-durations-en-text-without-durations/test.ar > ${SRC_TEXT}
     fi
 fi
 
+# This part is used to convert the Englihs phonemes (model output) to words, so that we can compare with the test dataset (REF_TEXT)
 if [[ ! -s ${HYP}.words ]]; then
     # Phoneme-to-grapheme conversion
     echo "Converting phonemes to graphemes for translation quality evaluation"
@@ -38,6 +54,7 @@ if [[ ! -s ${HYP}.words ]]; then
         > ${HYP}.nopause.phoneticwords.phonebpe
 
     # Reduce --batch-size if your GPU runs out of memory
+    # This is the second model: pretrained model to convert english phonemes (output from model 1) to words
     sockeye-translate \
         --models ${ROOT}/models/phoneme_to_grapheme \
         --checkpoint 48 \
@@ -50,6 +67,10 @@ if [[ ! -s ${HYP}.words ]]; then
 else
     echo "${HYP}.words already exists and will not be re-generated."
 fi
+
+# Bleu / Prism --> REF_TEXT vs HYP.words (English words - English words)
+# Comet --> SRC_TEXT (arabic words) + REF_TEXT + HYP.words
+# Speech overlap --> phonemes + durations (REF + HYP)
 
 echo "Calculating translation quality metrics:"
 sacrebleu ${REF_TEXT} -m bleu -f text -lc --tokenize none < ${HYP}.words

@@ -42,9 +42,9 @@ fi
 # Set the number of GPUs for distributed training
 # Adjust BATCH_SIZE and UPDATE_INTERVAL according to your GPU situation.
 # For example, if you change N_GPU to 2, you should set update-interval to 8 to have the same effective batch size
-N_GPU=1
+N_GPU=2
 BATCH_SIZE=4096
-UPDATE_INTERVAL=16
+UPDATE_INTERVAL=8
 
 # Run training
 torchrun --no_python --nproc_per_node ${N_GPU} \
@@ -70,7 +70,7 @@ sockeye-train \
     --label-smoothing 0.1 \
     --label-smoothing-impl torch \
     --optimizer-betas 0.9:0.98 \
-    --initial-learning-rate 0.031625 \
+    --initial-learning-rate 0.01 \
     --batch-size ${BATCH_SIZE} \
     --batch-type max-word \
     --update-interval ${UPDATE_INTERVAL} \

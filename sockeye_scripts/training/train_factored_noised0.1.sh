@@ -70,7 +70,7 @@ sockeye-train \
     --label-smoothing 0.1 \
     --label-smoothing-impl torch \
     --optimizer-betas 0.9:0.98 \
-    --initial-learning-rate 0.01 \
+    --initial-learning-rate 0.02 \
     --batch-size ${BATCH_SIZE} \
     --batch-type max-word \
     --update-interval ${UPDATE_INTERVAL} \

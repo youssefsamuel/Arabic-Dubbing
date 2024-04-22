@@ -43,7 +43,7 @@ fi
 # Adjust BATCH_SIZE and UPDATE_INTERVAL according to your GPU situation.
 # For example, if you change N_GPU to 2, you should set update-interval to 8 to have the same effective batch size
 N_GPU=2
-BATCH_SIZE=4096
+BATCH_SIZE=8192
 UPDATE_INTERVAL=8
 
 # Run training
@@ -70,7 +70,7 @@ sockeye-train \
     --label-smoothing 0.1 \
     --label-smoothing-impl torch \
     --optimizer-betas 0.9:0.98 \
-    --initial-learning-rate 0.01 \
+    --initial-learning-rate 0.014142 \
     --batch-size ${BATCH_SIZE} \
     --batch-type max-word \
     --update-interval ${UPDATE_INTERVAL} \

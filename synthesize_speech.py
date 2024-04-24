@@ -3,6 +3,7 @@ import argparse
 import pickle
 import json
 import re
+import subprocess
 from subprocess import Popen, PIPE, DEVNULL, check_call
 import logging
 logging.basicConfig(level=logging.INFO,
@@ -16,6 +17,7 @@ from subword_nmt.apply_bpe import BPE
 from pydub import AudioSegment
 
 from preprocessing_scripts import Bin
+from arabert import ArabertPreprocessor
 
 """
 Summary of the whole file:
@@ -34,7 +36,23 @@ PAUSE = '[pause]'
 SHIFT= '<shift>'
 SAMPLING_RATE = 22050
 HOP_LENGTH = 256
+arabert_preprocessor = ArabertPreprocessor(
+    model_name= "aubmindlab/bert-base-arabertv2",
+    keep_emojis = False,
+    remove_html_markup = True,
+    replace_urls_emails_mentions = True,
+    strip_tashkeel = True,
+    strip_tatweel = True,
+    insert_white_spaces = False,
+    remove_non_digit_repetition = True,
+    replace_slash_with_dash = True,
+    map_hindi_numbers_to_arabic = True,
+    apply_farasa_segmentation = True
+)
 
+def remove_punc(sentence):
+    cleaned_sentence = re.sub(r'[،؛:<>()«»\-…]', '', sentence)
+    return cleaned_sentence
 
 def get_sorted_audio_files(data_dir):
     """
@@ -172,17 +190,17 @@ if __name__ == '__main__':
                              "where sorting numerically by the Y field will give us the files in the same order as the transcript file. "
                              "This is already true for the test set subsets.")
     parser.add_argument("--source-text", type=str,
-                        help="File containing the source German text. Defaults to using subsetX.de for the test set subsets.")
+                        help="File containing the source Arabic text. Defaults to using subsetX.ar for the test set subsets.")
     parser.add_argument("--subset", choices=['1', '2'], type=str, required=True,
                         help="Which test set subset to generate dubs for.")
     parser.add_argument("--sockeye-model", type=str,
-                        default=os.path.join("/content", "Arabic-Dubbing", "models", "sockeye", "trained_baselines", "baseline_factored_noised0.1", "model", "params.00078"),
+                        default=os.path.join("/content", "Arabic-Dubbing", "models", "sockeye", "trained_baselines", "baseline_factored_noised0.1", "model", "params.00065"),
                         help="Path to a Sockeye model checkpoint.")
     parser.add_argument("--fastspeech-dir", type=str,
                         default=os.path.join("/content", "Arabic-Dubbing", "third_party", "FastSpeech2"),
                         help="Path to the FastSpeech2 directory.")
-    parser.add_argument("--bpe-de", type=str,
-                        default=os.path.join("/content", "Arabic-Dubbing", "data", "training", "de_codes_10k"),
+    parser.add_argument("--bpe-ar", type=str,
+                        default=os.path.join("/content", "Arabic-Dubbing", "data", "training", "ar_codes_20k"),
                         help="BPE codes for German source text.")
     parser.add_argument("--durations-freq", type=str,
                         default=os.path.join("/content", "Arabic-Dubbing", "durations_freq_all.pkl"),
@@ -196,13 +214,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # Default source text is `subsetX.de`
+    # Default source text is `subsetX.ar`
     if args.source_text is None:
-        args.source_text = os.path.join(args.data_dir, "subset" + args.subset + '.de')
+        args.source_text = os.path.join(args.data_dir, "subset" + args.subset + '.ar')
 
-    # Do not change: These directories are fixed for FastSpeech2 trained on LJSpeech data
-    output_dir = os.path.join(args.fastspeech_dir, 'output', 'result', 'LJSpeech')
-    durations_dir = os.path.join(args.fastspeech_dir, 'preprocessed_data', 'LJSpeech', 'duration')
+    # Do not change: These directories are fixed for FastSpeech2 trained on LibriTTS data
+    output_dir = os.path.join(args.fastspeech_dir, 'output', 'result', 'LibriTTS')
+    durations_dir = os.path.join(args.fastspeech_dir, 'preprocessed_data', 'LibriTTS', 'duration')
 
     # Default directory is a subdirectory of the input audio directory called `dubbed`
     if args.output_video_dir is None:
@@ -221,7 +239,7 @@ if __name__ == '__main__':
     Asserts that the number of audio files and lines in the source text match.
 
     BPE Processing and Duration Binning:
-    Creates a BPE processor (bpe_de) using the provided BPE codes.
+    Creates a BPE processor (bpe_ar) using the provided BPE codes.
     Loads duration frequencies for binning using a Bin instance.
     Initializes a SileroVad instance for voice activity detection.
     Initializes a SockeyeTranslator instance for translation.
@@ -239,7 +257,7 @@ if __name__ == '__main__':
     Embeds the audio onto video if corresponding video files exist.
     """
     # Create BPE processor
-    bpe_de = BPE(open(args.bpe_de))
+    bpe_ar = BPE(open(args.bpe_ar))
 
     # Load duration frequencies for binning
     with open(args.durations_freq, 'rb') as f:
@@ -267,11 +285,29 @@ if __name__ == '__main__':
             # BPE each segment and append segment durations bins
             bins = bin_instance.find_bin(speech_durations=duration_frames)
             sentence_segments = src_text[idx].split('[pause]')
-            sentence_bpe = [bpe_de.process_line(sentence_seg.strip()) for sentence_seg in sentence_segments]
+            sentence_bpe = [remove_punc(bpe_ar.process_line(arabert_preprocessor.preprocess(sentence_seg.strip())).replace(' +', '').replace('+ ', '')) for sentence_seg in sentence_segments]
             sentence_bped_str = " ".join(sentence_bpe) + SEGMENT_DURATION_SEPARATOR + " ".join(bins)
 
             # Get translation from Sockeye
             hyp = sockeye_translator.translate_line(sentence_bped_str, duration_frames)
+         
+            # Define the file path
+            file_path = "models/sockeye/baseline_factored_noised0.1/sentence.output"
+
+            # Open the file in write mode
+            with open(file_path, 'w') as file:
+                # Write the sentence to the file
+                file.write(hyp)
+
+
+
+            # Define the calling line
+          #  calling_line = "./sockeye_scripts/evaluation/evaluate-factored.sh processed_datasets/de-text-noisy-durations0.1-en-phones-durations/valid.en models/sockeye/baseline_factored_noised0.1/sentence.output"
+
+            # Call the shell script
+           # subprocess.call(calling_line, shell=True)
+
+
             f_out.write(hyp)
             # Remove `<eow>` and `<shift>` tokens
             hyp = " ".join([t for t in hyp.split() if t.split(FACTOR_DELIMITER)[0] not in [EOW, SHIFT]])
@@ -282,21 +318,24 @@ if __name__ == '__main__':
             for seg_idx, hyp_segment in enumerate(hyp_segments[idx]):
                 seg_fs2_id = f"subset{args.subset}-{idx+1}-{seg_idx+1}"
                 # Write input in FastSpeech2 format
-                f_fs2_inp.write(seg_fs2_id + '|LJSpeech|{')
+                f_fs2_inp.write(seg_fs2_id + '|6115|{')
                 f_fs2_inp.write(' '.join([t.split(FACTOR_DELIMITER)[0] for t in hyp_segment.split()]))
                 f_fs2_inp.write('}|\n')
                 # Save durations to file for FastSpeech2 to read
-                np.save(os.path.join(durations_dir, "LJSpeech-duration-" + seg_fs2_id + '.npy'),
+                np.save(os.path.join(durations_dir, "LibriTTS-duration-" + seg_fs2_id + '.npy'),
                         np.array([int(t.split(FACTOR_DELIMITER)[1]) for t in hyp_segment.split()]))
 
+    
     # FastSpeech2 doesn't work unless you're in the right directory due to relative paths in their configs.
     os.chdir(args.fastspeech_dir)
     logging.info("Running FastSpeech2 on phoneme and duration outputs")
-    check_call(f"`dirname ${{CONDA_PREFIX}}`/fastspeech2/bin/python {os.path.join(args.fastspeech_dir, 'synthesize.py')} --mode batch "
-               f"--source {os.path.join(output_dir, 'subset' + args.subset + '.en.fs2_inp')} --restore_step 900000 "
-               f"-p {os.path.join(args.fastspeech_dir, 'config/LJSpeech/preprocess.yaml')} "
-               f"-m {os.path.join(args.fastspeech_dir, 'config/LJSpeech/model.yaml')} "
-               f"-t {os.path.join(args.fastspeech_dir, 'config/LJSpeech/train.yaml')} >/dev/null",
+
+
+    check_call(f"`dirname ${{CONDA_PREFIX}}`/fastspeech2/bin/python {os.path.join(args.fastspeech_dir, 'synthesize.py')}  "
+               f"--source {os.path.join(output_dir, 'subset' + args.subset + '.en.fs2_inp')}  --speaker_id 6115 --restore_step 800000 --mode batch "
+               f"-p {os.path.join(args.fastspeech_dir, 'config/LibriTTS/preprocess.yaml')} "
+               f"-m {os.path.join(args.fastspeech_dir, 'config/LibriTTS/model.yaml')} "
+               f"-t {os.path.join(args.fastspeech_dir, 'config/LibriTTS/train.yaml')} >/dev/null",
                shell=True)
 
     logging.info("Reconstructing final audio segments")

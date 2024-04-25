@@ -207,12 +207,29 @@ if __name__ == '__main__':
                         help="Path to durations_freq_all.pkl")
     parser.add_argument("--output-video-dir", type=str,
                         help="Directory to write final dubbed videos.")
+    parser.add_argument("--genderfile", type=str,
+                        help="File to containing the gender of each speaker")
     parser.add_argument("--join-mode", type=str, choices=['match_pause', 'match_start'], default='match_start',
                         help="When joining segments together to create final clip:\n"
                              "match_pause: Pause lengths match source.\n"
                              "match_start: Try to match segment start times. May not match exactly if segments are too long.\n")
 
     args = parser.parse_args()
+    gender_file_path = args.genderfile
+    gender_list = []
+    #Reading the genders
+    with open(gender_file_path, "r") as f:
+        # Read each line in the file
+        for line in f:
+            string = line[:-1]
+            print(string)
+            # Check if the line contains "male"
+            if string == "male":
+                # If it does, add 0 to the list
+                gender_list.append(0)
+            else:
+                # If it doesn't, add 1 to the list
+                gender_list.append(1)
 
     # Default source text is `subsetX.ar`
     if args.source_text is None:
@@ -271,10 +288,16 @@ if __name__ == '__main__':
     speech_timestamps = []
     pauses = []
     hyp_segments = []
+    gender_index = 0
     logging.info(f"Generating translated phoneme and duration outputs")
     with open(os.path.join(output_dir, 'subset' + args.subset + '.en.output'), 'w') as f_out, \
          open(os.path.join(output_dir, 'subset' + args.subset + '.en.fs2_inp'), 'w') as f_fs2_inp:
         for idx, audio_file in tqdm(enumerate(audio_files)):
+            if gender_list[gender_index] == 0:
+                speaker_id = "6115"
+            else:
+                speaker_id = "3816"
+            gender_index += 1
             duration_frames = []
             vad = silero_vad.get_timestamps(audio_file)
             speech_timestamps.append(vad[0])
@@ -290,23 +313,7 @@ if __name__ == '__main__':
 
             # Get translation from Sockeye
             hyp = sockeye_translator.translate_line(sentence_bped_str, duration_frames)
-         
-            # Define the file path
-            file_path = "models/sockeye/baseline_factored_noised0.1/sentence.output"
-
-            # Open the file in write mode
-            with open(file_path, 'w') as file:
-                # Write the sentence to the file
-                file.write(hyp)
-
-
-
-            # Define the calling line
-          #  calling_line = "./sockeye_scripts/evaluation/evaluate-factored.sh processed_datasets/de-text-noisy-durations0.1-en-phones-durations/valid.en models/sockeye/baseline_factored_noised0.1/sentence.output"
-
-            # Call the shell script
-           # subprocess.call(calling_line, shell=True)
-
+        
 
             f_out.write(hyp)
             # Remove `<eow>` and `<shift>` tokens
@@ -318,7 +325,8 @@ if __name__ == '__main__':
             for seg_idx, hyp_segment in enumerate(hyp_segments[idx]):
                 seg_fs2_id = f"subset{args.subset}-{idx+1}-{seg_idx+1}"
                 # Write input in FastSpeech2 format
-                f_fs2_inp.write(seg_fs2_id + '|6115|{')
+
+                f_fs2_inp.write(seg_fs2_id + '|' + str(speaker_id) + '|{')
                 f_fs2_inp.write(' '.join([t.split(FACTOR_DELIMITER)[0] for t in hyp_segment.split()]))
                 f_fs2_inp.write('}|\n')
                 # Save durations to file for FastSpeech2 to read
@@ -332,7 +340,7 @@ if __name__ == '__main__':
 
 
     check_call(f"`dirname ${{CONDA_PREFIX}}`/fastspeech2/bin/python {os.path.join(args.fastspeech_dir, 'synthesize.py')}  "
-               f"--source {os.path.join(output_dir, 'subset' + args.subset + '.en.fs2_inp')}  --speaker_id 6115 --restore_step 800000 --mode batch "
+               f"--source {os.path.join(output_dir, 'subset' + args.subset + '.en.fs2_inp')}  --restore_step 800000 --mode batch "
                f"-p {os.path.join(args.fastspeech_dir, 'config/LibriTTS/preprocess.yaml')} "
                f"-m {os.path.join(args.fastspeech_dir, 'config/LibriTTS/model.yaml')} "
                f"-t {os.path.join(args.fastspeech_dir, 'config/LibriTTS/train.yaml')} >/dev/null",

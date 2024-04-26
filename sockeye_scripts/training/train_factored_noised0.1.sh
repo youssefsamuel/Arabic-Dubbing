@@ -75,7 +75,7 @@ sockeye-train \
     --batch-type max-word \
     --update-interval ${UPDATE_INTERVAL} \
     --max-num-epochs 60 \
-    --checkpoint-interval 1500 \
+    --checkpoint-interval 2000 \
     --stop-training-on-decoder-failure \
     --seed 42 \
     --quiet-secondary-workers \

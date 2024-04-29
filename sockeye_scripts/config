@@ -1,3 +1,3 @@
 ROOT=/kaggle/working/
-DATA_HOME=/kaggle/input/nopunc-0-2noisestd/Arabic-Dubbing/processed_datasets
+DATA_HOME=/kaggle/input/nopunc-0-2noisestd-true/Arabic-Dubbing/processed_datasets
 MODELS_HOME=/kaggle/working/models/sockeye

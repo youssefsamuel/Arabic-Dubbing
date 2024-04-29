@@ -66,7 +66,7 @@ sockeye-train \
     --transformer-dropout-prepost 0.3:0.3 \
     --transformer-dropout-act 0.3:0.3 \
     --weight-tying-type none \
-    --weight-decay 0.00001 \
+    --weight-decay 0.0001 \
     --label-smoothing 0.1 \
     --label-smoothing-impl torch \
     --optimizer-betas 0.9:0.98 \

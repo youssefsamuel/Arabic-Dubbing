@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFo
 
 parser.add_argument("--data-dir", "-d", required=True,
                     help="Directory containing test.ar/valid.ar and the multi_factored[_eow] directory")
-parser.add_argument("--subset", required=True, choices=["valid", "test"],
+parser.add_argument("--subset", required=True, choices=["valid", "test", "train"],
                     help="Dataset to prepare (valid or test)")
 parser.add_argument("--output-segment-durations", action='store_true',
                     help="Include segment durations for forcing at inference time")
